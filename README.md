@@ -1,4 +1,4 @@
-# cdk-constructs
+# alf-cdk-ec2
 AWS CDK Deployment mit ACS. The Docker Compose deployment is based on the Alfresco Docker Installer (www.github.com/Alfresco/alfresco-docker-installer)
 
 ## Deploy
