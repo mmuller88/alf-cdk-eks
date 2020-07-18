@@ -1,22 +1,16 @@
-import { Stack, App, StackProps, CfnOutput} from '@aws-cdk/core';
+ 
+import { Construct } from 'constructs';
+import { App, Chart } from 'cdk8s';
 
-export interface AlfCdkEksStackProps extends StackProps {
-}
-
-class AlfCdkEksStack extends Stack {
-  constructor(app: App, id: string, props?: AlfCdkEksStackProps) {
-    super(app, id);
+class AlfCdkEksStack extends Chart {
+  constructor(scope: Construct, id: string) {
+    super(scope, id);
 
     
   }
 }
 
 const app = new App();
-new AlfCdkEksStack(app, 'AlfCdkEc2Stack', {
-  env: {
-    account: '981237193288',
-    region: 'us-east-1'
-  }
-});
+new AlfCdkEksStack(app, 'AlfCdkEksStack');
 
 app.synth();
