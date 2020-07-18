@@ -1,0 +1,4 @@
+#!/bin/bash
+
+service docker start
+/usr/local/alf-ec2-1/start.sh
