@@ -1,6 +1,0 @@
-/node_modules
-/cdk.out
-
-# volumes
-data
-logs

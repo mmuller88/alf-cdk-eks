@@ -1,26 +1,24 @@
 {
-  "name": "src",
+  "name": "eks-cluster",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.ts",
+  "description": "Basic EKS cluster with VPC and self managed AutoScalingGroup",
+  "private": true,
   "scripts": {
-    "gen": "cdk8s import k8s --language typescript",
-    "build": "yarn gen && tsc",
+    "build": "tsc",
     "watch": "tsc -w",
-    "synth": "node ./index.js",
-    "test": "jest"
+    "cdk": "cdk"
   },
-  "author": "Martin Mueller damadden88@googlemail.com",
-  "license": "MIT",
-  "dependencies": {
-    "cdk8s": "0.26.0",
-    "constructs": "^3.0.4"
-  },
+  "license": "Apache-2.0",
   "devDependencies": {
-    "@types/jest": "^26.0.4",
     "@types/node": "^14.0.23",
-    "cdk8s-cli": "0.26.0",
-    "jest": "^26.1.0",
-    "typescript": "^3.9.7"
+    "typescript": "~3.9.7"
+  },
+  "dependencies": {
+    "@aws-cdk/aws-autoscaling": "1.52.0",
+    "@aws-cdk/aws-ec2": "1.52.0",
+    "@aws-cdk/aws-eks": "1.52.0",
+    "@aws-cdk/aws-iam": "1.52.0",
+    "@aws-cdk/core": "1.52.0",
+    "aws-cdk": "1.52.0"
   }
 }
