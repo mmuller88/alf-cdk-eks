@@ -1,7 +1,7 @@
 import { PolicyStatement, Effect, Role, ServicePrincipal, ManagedPolicy, Group, AccountRootPrincipal } from '@aws-cdk/aws-iam';
 import { InstanceType, Vpc } from '@aws-cdk/aws-ec2';
 import { AutoScalingGroup, UpdateType } from '@aws-cdk/aws-autoscaling';
-import { EksOptimizedImage, Cluster, KubernetesVersion, NodeType } from '@aws-cdk/aws-eks';
+import { EksOptimizedImage, Cluster, KubernetesVersion, NodeType, HelmChart } from '@aws-cdk/aws-eks';
 import { App, StackProps, Stack } from '@aws-cdk/core';
 
 class EKSCluster extends Stack {
@@ -12,7 +12,7 @@ class EKSCluster extends Stack {
     
     // IAM role for our EC2 worker nodes
     const workerRole = new Role(this, 'EKSWorkerRole', {
-      assumedBy: new ServicePrincipal('amazonaws.com')
+      assumedBy: new ServicePrincipal('ec2.amazonaws.com')
     });
 
     workerRole.addToPolicy(new PolicyStatement({
@@ -20,10 +20,10 @@ class EKSCluster extends Stack {
       actions: ['ec2:DescribeVpcs'] }));
 
 
-    const eksRole = new Role(this, 'eksRole', {
-      roleName: 'eksRole',
-      assumedBy: new ServicePrincipal('amazonaws.com')
-    });
+    // const eksRole = new Role(this, 'eksRole', {
+    //   roleName: 'eksRole',
+    //   assumedBy: new ServicePrincipal('eks.amazonaws.com')
+    // });
 
     const eksClusterAdmin = new Role(this, 'eksClusterAdmin', {
       assumedBy: new AccountRootPrincipal()
@@ -76,13 +76,19 @@ class EKSCluster extends Stack {
 
     const eksCluster = new Cluster(this, 'Cluster', {
       clusterName: this.stackName,
-      role: eksRole,
+      // role: eksRole,
       mastersRole: eksClusterAdmin,
       vpc: vpc,
       kubectlEnabled: true,  // we want to be able to manage k8s resources using CDK
       defaultCapacity: 0,  // we want to manage capacity our selves
-      version: KubernetesVersion.V1_16,
+      version: KubernetesVersion.V1_17,
     });
+
+    eksCluster.role.addToPolicy(new PolicyStatement({
+      resources: ['*'],
+      actions: ['logs:*', 'route53:ChangeResourceRecordSets', 'eks:CreateCluster'] }));
+
+    eksCluster.role.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AdministratorAccess'));
 
     // eksCluster.awsAuth.addRoleMapping(developerRole, {
     //   groups: [],
@@ -96,15 +102,70 @@ class EKSCluster extends Stack {
       role: workerRole,
       minCapacity: 1,
       maxCapacity: 1,
-      instanceType: new InstanceType('t3.medium'),
+      instanceType: new InstanceType('t2.xlarge'),
       machineImage: new EksOptimizedImage({
-        kubernetesVersion: '1.14',
-        nodeType: NodeType.STANDARD  // without this, incorrect SSM parameter for AMI is resolved
+        kubernetesVersion: '1.17',
+        nodeType: NodeType.STANDARD
       }),
       updateType: UpdateType.ROLLING_UPDATE
     });
 
     eksCluster.addAutoScalingGroup(onDemandASG, {});
+
+    const awsCertArn='arn:aws:acm:us-east-1:981237193288:certificate/62010fca-125e-4780-8d71-7d745ff91789'
+    const awsCertPolicy="ELBSecurityPolicy-TLS-1-2-2017-01"
+
+    const acsNamespace = 'default';
+
+    new HelmChart(this, 'NginxIngress', {
+      cluster: eksCluster,
+      chart: 'nginx-ingress',
+      repository: 'https://helm.nginx.com/stable',
+      namespace: 'kube-system',
+      values: {
+        'rbac': {
+          'create': true
+        },
+        'controller': {
+          'scope': {
+            'enabled': true,
+            'namespace': acsNamespace
+          },
+          'config': {
+            'force-ssl-redirect': true,
+            'server-tokens': false
+          },
+          'service': {
+            'targetPorts': {
+              'https': 80
+            },
+            'annotations': {
+              'service.beta.kubernetes.io/aws-load-balancer-backend-protocol': 'http',
+              'service.beta.kubernetes.io/aws-load-balancer-ssl-ports': 'https',
+              'service.beta.kubernetes.io/aws-load-balancer-ssl-cert': awsCertArn,
+              'external-dns.alpha.kubernetes.io/hostname': `${acsNamespace}.eks.alfpro.net`,
+              'service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy': awsCertPolicy
+            },
+            'publishService': {
+              'enabled': true
+            }
+          }
+        }
+      }
+    })
+
+    new HelmChart(this, 'AcsHelmChart', {
+      cluster: eksCluster,
+      // repository: 'http://kubernetes-charts.alfresco.com/incubator',
+      // chart: 'http://kubernetes-charts.alfresco.com/stable/alfresco-content-services-community-3.0.1.tgz',
+      chart: 'http://kubernetes-charts.alfresco.com/incubator/alfresco-content-services-5.0.0.tgz',
+      // version: '3.0.1',
+      release: 'my-acs',
+      namespace: acsNamespace,
+      values: {
+        
+      }
+    })
   }
 }
 
