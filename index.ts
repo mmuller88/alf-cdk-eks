@@ -19,12 +19,6 @@ class EKSCluster extends Stack {
       resources: ['*'],
       actions: ['ec2:DescribeVpcs'] }));
 
-
-    // const eksRole = new Role(this, 'eksRole', {
-    //   roleName: 'eksRole',
-    //   assumedBy: new ServicePrincipal('eks.amazonaws.com')
-    // });
-
     const eksClusterAdmin = new Role(this, 'eksClusterAdmin', {
       assumedBy: new AccountRootPrincipal()
     });
@@ -84,11 +78,13 @@ class EKSCluster extends Stack {
       version: KubernetesVersion.V1_17,
     });
 
-    eksCluster.role.addToPolicy(new PolicyStatement({
-      resources: ['*'],
-      actions: ['logs:*', 'route53:ChangeResourceRecordSets', 'eks:CreateCluster'] }));
+    // eksCluster.role.addToPolicy(new PolicyStatement({
+    //   resources: ['*'],
+    //   actions: ['logs:*', 'route53:ChangeResourceRecordSets', 'eks:CreateCluster'] }));
 
-    eksCluster.role.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AdministratorAccess'));
+    // workerRole.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AdministratorAccess'));
+    // eksCluster.role.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AdministratorAccess'));
+    // eksClusterAdmin.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AdministratorAccess'));
 
     // eksCluster.awsAuth.addRoleMapping(developerRole, {
     //   groups: [],
@@ -104,7 +100,7 @@ class EKSCluster extends Stack {
       maxCapacity: 1,
       instanceType: new InstanceType('t2.xlarge'),
       machineImage: new EksOptimizedImage({
-        kubernetesVersion: '1.17',
+        kubernetesVersion: '1.14',
         nodeType: NodeType.STANDARD
       }),
       updateType: UpdateType.ROLLING_UPDATE
@@ -117,7 +113,8 @@ class EKSCluster extends Stack {
 
     const acsNamespace = 'default';
 
-    new HelmChart(this, 'NginxIngress', {
+    /*const nginxChart = */ new HelmChart(this, 'NginxIngress', {
+      release: 'nginx-ingress',
       cluster: eksCluster,
       chart: 'nginx-ingress',
       repository: 'https://helm.nginx.com/stable',
@@ -154,21 +151,27 @@ class EKSCluster extends Stack {
       }
     })
 
-    new HelmChart(this, 'AcsHelmChart', {
-      cluster: eksCluster,
-      // repository: 'http://kubernetes-charts.alfresco.com/incubator',
-      // chart: 'http://kubernetes-charts.alfresco.com/stable/alfresco-content-services-community-3.0.1.tgz',
-      chart: 'http://kubernetes-charts.alfresco.com/incubator/alfresco-content-services-5.0.0.tgz',
-      // version: '3.0.1',
-      release: 'my-acs',
-      namespace: acsNamespace,
-      values: {
+    // Can't use ACS Charts yet as they are not Helm 3 compatible. You would need to install them with Helm 2 yourself!
+    // /*const acsChart  =*/  new HelmChart(this, 'AcsHelmChart', {
+    //   cluster: eksCluster,
+    //   // repository: 'http://kubernetes-charts.alfresco.com/incubator',
+    //   // chart: 'http://kubernetes-charts.alfresco.com/incubator/alfresco-content-services-community-4.0.0.tgz',
+    //   chart: 'http://kubernetes-charts.alfresco.com/incubator/alfresco-content-services-5.0.0.tgz',
+    //   // chart: 'alfresco-content-services',
+    //   // version: '5.0.0',
+    //   release: 'my-acs',
+    //   namespace: acsNamespace,
+    //   wait: true,
+    //   timeout: Duration.minutes(15),
+    //   // values: {
         
-      }
-    })
+    //   // }
+    // })
+
+    // acsChart.node.addDependency(nginxChart);
   }
 }
 
 const app = new App();
-new EKSCluster(app, 'MyEKSCluster');
+new EKSCluster(app, 'AcsEksCluster');
 app.synth();
